@@ -156,7 +156,7 @@ check_info['mysql.innodb_io'] = {
 }
 
 #   .----------------------------------------------------------------------.
-#   | Com Metrics                                                        |
+#   | Com Commands                                                         |
 #   '----------------------------------------------------------------------'
 
 # params:
@@ -164,18 +164,29 @@ check_info['mysql.innodb_io'] = {
 #    "com_rollback" : (10, 20),
 # }
 
-def inventory_mysql_com_metrics(info):
+def inventory_mysql_com_counters(info):
     values = parse_mysql(info)
     if 'Com_commit' in values and 'Com_rollback' in values:
         return [(None, {})]
 
-def check_mysql_com_metrics(_no_item, params, info):
+def check_mysql_com_counters(_no_item, params, info):
     values = parse_mysql(info)
     if 'Com_commit' not in values:
         return (3, 'Com_commit information is missing')
 
-    timedif, com_commit = get_counter("mysql.com_metrics.com_commit", time.time(), values["Com_commit"])
-    timedif, com_rollback = get_counter("mysql.com_metrics.com_rollback", time.time(), values["Com_rollback"])
+    timedif, questions          = get_counter("mysql.questions",          time.time(), values["Questions"])
+    timedif, com_select         = get_counter("mysql.com_select",         time.time(), values["Com_select"])
+    timedif, com_delete         = get_counter("mysql.com_delete",         time.time(), values["Com_delete"])
+    timedif, com_insert         = get_counter("mysql.com_insert",         time.time(), values["Com_insert"])
+    timedif, com_update         = get_counter("mysql.com_update",         time.time(), values["Com_update"])
+    timedif, com_replace        = get_counter("mysql.com_replace",        time.time(), values["Com_replace"])
+    timedif, com_load           = get_counter("mysql.com_load",           time.time(), values["Com_load"])
+    timedif, com_delete_multi   = get_counter("mysql.com_delete_multi",   time.time(), values["Com_delete_multi"])
+    timedif, com_insert_select  = get_counter("mysql.com_insert_select",  time.time(), values["Com_insert"])
+    timedif, com_update_multi   = get_counter("mysql.com_update_multi",   time.time(), values["Com_update_multi"])
+    timedif, com_replace_select = get_counter("mysql.com_replace_select", time.time(), values["Com_replace_select"])
+    timedif, com_commit         = get_counter("mysql.com_commit",         time.time(), values["Com_commit"])
+    timedif, com_rollback       = get_counter("mysql.com_rollback",       time.time(), values["Com_rollback"])
 
     infotext = "Com_commit: %.2f, Com_rollback: %.2f" % (
         com_commit, com_rollback)
@@ -185,8 +196,19 @@ def check_mysql_com_metrics(_no_item, params, info):
     status = 0
 
     for value, what, format, unit in [
-        ( com_commit,   "commit",       "%.2f",   "" ),
-        ( com_rollback, "rollback",     "%.2f",   "" ),
+        ( questions,            "questions",            "%.2f", "/s" ),
+        ( com_select,           "com_select",           "%.2f",   "" ),
+        ( com_delete,           "com_delete",           "%.2f",   "" ),
+        ( com_insert,           "com_insert",           "%.2f",   "" ),
+        ( com_update,           "com_update",           "%.2f",   "" ),
+        ( com_replace,          "com_replace",          "%.2f",   "" ),
+        ( com_load,             "com_load",             "%.2f",   "" ),
+        ( com_delete_multi,     "com_delete_multi",     "%.2f",   "" ),
+        ( com_insert_select,    "com_insert_select",    "%.2f",   "" ),
+        ( com_update_multi,     "com_update_multi",     "%.2f",   "" ),
+        ( com_replace_select,   "com_replace_select",   "%.2f",   "" ),
+        ( com_commit,           "com_commit",           "%.2f",   "" ),
+        ( com_rollback,         "com_rollback",         "%.2f",   "" ),
         ]:
         infos.append((format + " %s%s") % (value, what, unit))
         if what in params:
@@ -204,12 +226,12 @@ def check_mysql_com_metrics(_no_item, params, info):
     return (status, ", ".join(infos), perfdata)
 
 
-check_info['mysql.com_metrics'] = {
-    "check_function"          : check_mysql_com_metrics,
-    "inventory_function"      : inventory_mysql_com_metrics,
-    "service_description"     : "MySQL Com Metrics",
+check_info['mysql.com_counters'] = {
+    "check_function"          : check_mysql_com_counters,
+    "inventory_function"      : inventory_mysql_com_counters,
+    "service_description"     : "MySQL Command Counters",
     "has_perfdata"            : True,
-    "group"                   : "mysql_com_metrics",
+    "group"                   : "mysql_com_counters",
 }
 
 #   .--Connections---------------------------------------------------------.
