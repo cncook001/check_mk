@@ -137,26 +137,103 @@ check_info['mysql.sessions'] = {
 
 def inventory_mysql_iostat(info):
     values = parse_mysql(info)
-    if "Innodb_data_read" in values.keys():
+    if "Innodb_data_reads" in values and "Innodb_data_writes" in values:
         return [(None, {})]
 
 def check_mysql_iostat(item, params, info):
     values = parse_mysql(info)
-    line = [ None, values["Innodb_data_read"] / 512, values["Innodb_data_written"] / 512]
-    return check_diskstat_line(time.time(), 'innodb_io', params, line)
+    timedif, innodb_data_reads  = get_counter("mysql.innodb_data_reads",  time.time(), values["Innodb_data_reads"])
+    timedif, innodb_data_writes = get_counter("mysql.innodb_data_writes", time.time(), values["Innodb_data_writes"])
+    timedif, innodb_log_writes  = get_counter("mysql.innodb_log_writes",  time.time(), values["Innodb_log_writes"])
+    timedif, innodb_data_fsyncs = get_counter("mysql.innodb_data_fsyncs", time.time(), values["Innodb_data_fsyncs"])   
 
+    infos = []
+    perfdata = []
+    status = 0
+
+    for value, what, format, unit in [
+        ( innodb_data_reads,          "innodb_data_reads",          "%.2f",   "" ),
+        ( innodb_data_writes,         "innodb_data_writes",         "%.2f",   "" ),
+        ( innodb_log_writes,          "innodb_log_writes",          "%.2f",   "" ),
+        ( innodb_data_fsyncs,         "innodb_data_fsyncs",         "%.2f",   "" ),
+        ]:
+        infos.append((format + " %s%s") % (value, what, unit))
+        if what in params:
+            warn, crit = params[what]
+            if value >= crit:
+                status = 2
+                infos[-1] += "(!!)"
+            elif value >= warn:
+                status = max(status, 1)
+                infos[-1] += "(!)"
+        else:
+            warn, crit = None, None
+        perfdata.append((what, value, warn, crit))
+
+    return (status, ", ".join(infos), perfdata)
 
 check_info['mysql.innodb_io'] = {
-    "includes"                : [ "diskstat.include" ],
     "check_function"          : check_mysql_iostat,
     "inventory_function"      : inventory_mysql_iostat,
-    "service_description"     : "MySQL Daemon InnoDB IO",
+    "service_description"     : "MySQL InnoDB I/O",
     "has_perfdata"            : True,
     "group"                   : "mysql_innodb_io",
 }
 
 #   .----------------------------------------------------------------------.
-#   | Com Commands                                                         |
+#   | Innodb I/O Pending                                                   |
+#   '----------------------------------------------------------------------'
+
+def inventory_mysql_iostat_pending(info):
+    values = parse_mysql(info)
+    if "Innodb_data_pending_reads" in values.keys():
+        return [(None, {})]
+
+def check_mysql_iostat_pending(item, params, info):
+    values = parse_mysql(info)
+    innodb_data_pending_reads        = values["Innodb_data_pending_reads"]
+    innodb_data_pending_writes       = values["Innodb_data_pending_writes"]
+    innodb_data_pending_fsyncs       = values["Innodb_data_pending_fsyncs"]
+    innodb_os_log_pending_writes     = values["Innodb_os_log_pending_writes"]
+    innodb_os_log_pending_fsyncs     = values["Innodb_os_log_pending_fsyncs"]
+
+    infos = []
+    perfdata = []
+    status = 0
+
+    for value, what, format, unit in [
+        ( innodb_data_pending_reads,    "innodb_data_pending_reads",    "%d", "" ),
+        ( innodb_data_pending_writes,   "innodb_data_pending_writes",   "%d", "" ),
+        ( innodb_data_pending_fsyncs,   "innodb_data_pending_fsyncs",   "%d", "" ),
+        ( innodb_os_log_pending_writes, "innodb_os_log_pending_writes", "%d", "" ),
+        ( innodb_os_log_pending_fsyncs, "innodb_os_log_pending_fsyncs", "%d", "" ),
+        ]:
+        infos.append((format + " %s%s") % (value, what, unit))
+        if what in params:
+            warn, crit = params[what]
+            if value >= crit:
+                status = 2
+                infos[-1] += "(!!)"
+            elif value >= warn:
+                status = max(status, 1)
+                infos[-1] += "(!)"
+        else:
+            warn, crit = None, None
+        perfdata.append((what, value, warn, crit))
+
+    return (status, ", ".join(infos), perfdata)
+
+
+check_info['mysql.innodb_io_pending'] = {
+    "check_function"          : check_mysql_iostat_pending,
+    "inventory_function"      : inventory_mysql_iostat_pending,
+    "service_description"     : "MySQL InnoDB I/O Pending",
+    "has_perfdata"            : True,
+    "group"                   : "mysql_innodb_io_pending",
+}
+
+#   .----------------------------------------------------------------------.
+#   | Com Counters                                                         |                                                      |
 #   '----------------------------------------------------------------------'
 
 # params:
