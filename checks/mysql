@@ -181,6 +181,58 @@ check_info['mysql.innodb_io'] = {
 }
 
 #   .----------------------------------------------------------------------.
+#   | Innodb I/O Pending                                                   |
+#   '----------------------------------------------------------------------'
+
+def inventory_mysql_iostat_pending(info):
+    values = parse_mysql(info)
+    if "Innodb_data_pending_reads" in values.keys():
+        return [(None, {})]
+
+def check_mysql_iostat_pending(item, params, info):
+    values = parse_mysql(info)
+    innodb_data_pending_reads        = values["Innodb_data_pending_reads"]
+    innodb_data_pending_writes       = values["Innodb_data_pending_writes"]
+    innodb_data_pending_fsyncs       = values["Innodb_data_pending_fsyncs"]
+    innodb_os_log_pending_writes     = values["Innodb_os_log_pending_writes"]
+    innodb_os_log_pending_fsyncs     = values["Innodb_os_log_pending_fsyncs"]
+
+    infos = []
+    perfdata = []
+    status = 0
+
+    for value, what, format, unit in [
+        ( innodb_data_pending_reads,    "innodb_data_pending_reads",    "%d", "" ),
+        ( innodb_data_pending_writes,   "innodb_data_pending_writes",   "%d", "" ),
+        ( innodb_data_pending_fsyncs,   "innodb_data_pending_fsyncs",   "%d", "" ),
+        ( innodb_os_log_pending_writes, "innodb_os_log_pending_writes", "%d", "" ),
+        ( innodb_os_log_pending_fsyncs, "innodb_os_log_pending_fsyncs", "%d", "" ),
+        ]:
+        infos.append((format + " %s%s") % (value, what, unit))
+        if what in params:
+            warn, crit = params[what]
+            if value >= crit:
+                status = 2
+                infos[-1] += "(!!)"
+            elif value >= warn:
+                status = max(status, 1)
+                infos[-1] += "(!)"
+        else:
+            warn, crit = None, None
+        perfdata.append((what, value, warn, crit))
+
+    return (status, ", ".join(infos), perfdata)
+
+
+check_info['mysql.innodb_io_pending'] = {
+    "check_function"          : check_mysql_iostat_pending,
+    "inventory_function"      : inventory_mysql_iostat_pending,
+    "service_description"     : "MySQL InnoDB I/O Pending",
+    "has_perfdata"            : True,
+    "group"                   : "mysql_innodb_io_pending",
+}
+
+#   .----------------------------------------------------------------------.
 #   | Com Metrics                                                        |
 #   '----------------------------------------------------------------------'
 
