@@ -32,7 +32,7 @@ $BLUE = "0000FF";
 $DARK_BLUE = "0000A0";
 $LIGHT_BLUE = "ADD8E6";
 $PURPLE = "800080";
-$LIME = "00FF00";
+$PINK = "FFC0CB";
 $MAGENTA = "FF00FF";
 $SILVER = "C0C0C0";
 $GREY = "808080";
@@ -50,13 +50,13 @@ $var1_description = "File Reads";
 $var1_color = "$CYAN";
 $var2 = "innodb_data_writes";
 $var2_description = "File Writes";
-$var2_color = "$BLUE";
+$var2_color = "$GREEN";
 $var3 = "innodb_log_writes";
 $var3_description = "Log Writes";
-$var3_color = "$DARK_BLUE";
+$var3_color = "$ORANGE";
 $var4 = "innodb_data_fsyncs";
 $var4_description = "File Fsyncs";
-$var4_color = "$LIGHT_BLUE";
+$var4_color = "$PINK";
 
 # The number of data source various due to different
 # settings (such as averaging). We rather work with names
@@ -74,25 +74,25 @@ $opt[1] = "--vertical-label 'Throughput (MB/s)' -l0  -u 1 --title \"InnoDB I/O f
 
 $def[1] =  ""
          . "DEF:$var1=$RRD[$var1] "
-         . "LINE:$var1#$var1_color:\"$var1_description\" "
+         . "AREA:$var1#$var1_color:\"$var1_description\" "
          . "GPRINT:$var1:LAST:\"%6.2lf last\" "
          . "GPRINT:$var1:AVERAGE:\"%6.2lf avg\" "
          . "GPRINT:$var1:MAX:\"%6.2lf max\\n\" "
 
          . "DEF:$var2=$RRD[$var2] "
-         . "LINE:$var2#$var2_color:\"$var2_description\" "
+         . "AREA:$var2#$var2_color:\"$var2_description\":STACK "
          . "GPRINT:$var2:LAST:\"%6.2lf last\" "
          . "GPRINT:$var2:AVERAGE:\"%6.2lf avg\" "
          . "GPRINT:$var2:MAX:\"%6.2lf max\\n\" "
 
          . "DEF:$var3=$RRD[$var3] "
-         . "LINE:$var3#$var3_color:\"$var3_description\" "
+         . "AREA:$var3#$var3_color:\"$var3_description\":STACK "
          . "GPRINT:$var3:LAST:\"%6.2lf last\" "
          . "GPRINT:$var3:AVERAGE:\"%6.2lf avg\" "
          . "GPRINT:$var3:MAX:\"%6.2lf max\\n\" "
 
          . "DEF:$var4=$RRD[$var4] "
-         . "LINE:$var4#$var4_color:\"$var4_description\" "
+         . "AREA:$var4#$var4_color:\"$var4_description\":STACK "
          . "GPRINT:$var4:LAST:\"%6.2lf last\" "
          . "GPRINT:$var4:AVERAGE:\"%6.2lf avg\" "
          . "GPRINT:$var4:MAX:\"%6.2lf max\\n\" "
