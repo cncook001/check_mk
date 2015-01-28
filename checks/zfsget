@@ -1,0 +1,213 @@
+#!/usr/bin/python
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+# +------------------------------------------------------------------+
+# |             ____ _               _        __  __ _  __           |
+# |            / ___| |__   ___  ___| | __   |  \/  | |/ /           |
+# |           | |   | '_ \ / _ \/ __| |/ /   | |\/| | ' /            |
+# |           | |___| | | |  __/ (__|   <    | |  | | . \            |
+# |            \____|_| |_|\___|\___|_|\_\___|_|  |_|_|\_\           |
+# |                                                                  |
+# | Copyright Mathias Kettner 2014             mk@mathias-kettner.de |
+# +------------------------------------------------------------------+
+#
+# This file is part of Check_MK.
+# The official homepage is at http://mathias-kettner.de/check_mk.
+#
+# check_mk is free software;  you can redistribute it and/or modify it
+# under the  terms of the  GNU General Public License  as published by
+# the Free Software Foundation in version 2.  check_mk is  distributed
+# in the hope that it will be useful, but WITHOUT ANY WARRANTY;  with-
+# out even the implied warranty of  MERCHANTABILITY  or  FITNESS FOR A
+# PARTICULAR PURPOSE. See the  GNU General Public License for more de-
+# ails.  You should have  received  a copy of the  GNU  General Public
+# License along with GNU Make; see the file  COPYING.  If  not,  write
+# to the Free Software Foundation, Inc., 51 Franklin St,  Fifth Floor,
+# Boston, MA 02110-1301 USA.
+
+# Example output from agent (sizes are in bytes). Note: the part
+# [df] in this check is duplicated. We need this information because
+# zfsget does not show pass-through filesystems like '/'. :-(
+
+# <<<zfsget>>>
+# bpool   name    bpool   -
+# bpool   quota   0       default
+# bpool   used    21947036798826  -
+# bpool   available       11329512075414  -
+# bpool   mountpoint      /bpool  default
+# bpool   type    filesystem      -
+# bpool/acs_fs    name    bpool/acs_fs    -
+# bpool/acs_fs    quota   0       default
+# bpool/acs_fs    used    4829131610      -
+# bpool/acs_fs    available       11329512075414  -
+# bpool/acs_fs    mountpoint      /backup/acs     local
+# bpool/acs_fs    type    filesystem      -
+# [df]
+# /                    10255636 1836517 8419119    18%    /
+# /dev                 10255636 1836517 8419119    18%    /dev
+# proc                       0       0       0     0%    /proc
+# ctfs                       0       0       0     0%    /system/contract
+# mnttab                     0       0       0     0%    /etc/mnttab
+# objfs                      0       0       0     0%    /system/object
+# swap                 153480592     232 153480360     1%    /etc/svc/volatile
+# /usr/lib/libc/libc_hwcap1.so.1 10255636 1836517 8419119    18%    /lib/libc.so.1
+# fd                         0       0       0     0%    /dev/fd
+# swap                 2097152   11064 2086088     1%    /tmp
+# swap                 153480384      24 153480360     1%    /var/run
+# tsrdb10exp/export    5128704      21 4982717     1%    /export
+# tsrdb10exp/export/home 5128704      55 4982717     1%    /home
+# tsrdb10exp/export/opt 5128704  145743 4982717     3%    /opt
+# tsrdb10exp           5128704      21 4982717     1%    /tsrdb10exp
+# tsrdb10dat           30707712 19914358 10789464    65%    /u01
+
+def parse_zfs_entry(info):
+    def mb(x):
+        return saveint(x) / (1024.0 * 1024)
+    entry = {}
+    for name, what, value in info:
+        if what in ["used", "available"]:
+            entry[what] = mb(value)
+        elif what == "quota":
+            if value not in [ '0', '-' ]:
+                entry[what] = mb(value)
+        elif what in [ 'mountpoint', 'type', 'name' ]:
+            entry[what] = value
+
+    return entry
+
+def parse_zfsget(info):
+    run_zfs = True
+    run_df = False
+    last_name = None
+    zfs_agent_data = []
+    zfs_converted = []
+    df_parsed = {}
+    for line in info:
+        if line == ['[zfs]']:
+            run_zfs = True
+            run_df = False
+            continue
+        if line == ['[df]']:
+            run_df = True
+            run_zfs = False
+            continue
+
+        if run_zfs:
+            name = line[0]
+            # New block so parse everthing and go on collecting more blocks
+            if last_name != name:
+                last_name = name
+                if zfs_agent_data:
+                    new_entry = parse_zfs_entry(zfs_agent_data)
+                    if new_entry:
+                        zfs_converted.append(new_entry)
+                    zfs_agent_data = []
+            zfs_agent_data.append(line[:3])
+
+        if run_df:
+            if len(line) == 6:
+                device, kbytes, used, avail, percent, mountpoint = line
+            else:
+                device, fs_type, kbytes, used, avail, percent, mountpoint = line
+            if mountpoint.startswith("/"):
+                entry = {}
+                total = int(kbytes) / 1024.0
+                entry["name"] = device
+                entry["total"] = total
+                entry["used"] = int(used) / 1024.0
+                entry["available"] = total - entry["used"]
+                entry["mountpoint"] = mountpoint
+                df_parsed[mountpoint] = entry
+
+    # Now remove duplicate entries for the root filesystem, such
+    # as /dev/ or /lib/libc.so.1. We do this if size, used and
+    # avail is equal. I hope that it will not happen too often
+    # that this is per chance the case for different passed-through
+    # filesystems
+    root_entry = df_parsed.get("/")
+    if root_entry:
+        t_u_a = (root_entry["total"], root_entry["used"], root_entry["available"])
+        drop = []
+        for mountpoint, entry in df_parsed.items():
+            if mountpoint != "/" and \
+                t_u_a == (entry["total"], entry["used"], entry["available"]):
+                drop.append(mountpoint)
+        for mp in drop:
+            del df_parsed[mp]
+
+    # parsed has the device name as key, because there may exist
+    # several device names per mount point, and we know only
+    # later which one to take
+    zfs_parsed = {}
+    for entry in zfs_converted:
+        if entry["mountpoint"].startswith("/"):
+            entry["is_pool"] = '/' not in entry["name"]
+            if entry['available'] !=0 and entry['type'] == 'filesystem':
+                zfs_parsed[entry["name"]] = entry
+
+    # parsed_df and parsed_final have the mount point as key
+    parsed_final = {}
+    for mountpoint, entry_df in df_parsed.items():
+        found = False
+        # for every mount point in the df section, if the device name
+        # is also present in the "parsed" variable, we take those data
+        for name, entry in zfs_parsed.items():
+            if entry_df["name"] == name:
+                parsed_final[mountpoint] = entry
+                found = True
+        # if a mount point in the df section is not present in the
+        # parsed variable, we take the data from the df section
+        if not found:
+            parsed_final[mountpoint] = entry_df
+
+    return parsed_final
+
+def inventory_zfsget(info):
+    mplist = []
+    parsed = parse_zfsget(info)
+    for mountpoint, properties in parsed.items():
+        if mountpoint not in inventory_df_exclude_mountpoints:
+            mplist.append(mountpoint)
+    return df_inventory(mplist)
+
+
+# def convert_zfssize(txt):
+#     units_to_mb = {
+#         'K'  : 1/1024.0,
+#         'M'  : 1.0,
+#         'G'  : 1024.0,
+#         'T'  : 1024 * 1024.0,
+#         'P'  : 1024 * 1024 * 1024.0,
+#     }
+#     return float(txt[:-1]) * units_to_mb[txt[-1]]
+
+
+def check_zfsget(item, params, info):
+    entries = parse_zfsget(info)
+    # ist item drin -> OK, ansonsten gleich hier
+    fslist = []
+    for mountpoint, entry in entries.items():
+        if "patterns" in params or item == mountpoint:
+            # 1. Filesystems with a quota
+            if "quota" in entry:
+                used_mb = entry["used"]
+                total_mb = entry["quota"]
+                avail_mb = total_mb - used_mb
+            # 2. Normal filesystems.
+            else:
+                used_mb = entry["used"]
+                avail_mb = entry["available"]
+                total_mb = used_mb + avail_mb
+            fslist.append((mountpoint, total_mb, avail_mb))
+
+    return df_check_filesystem_list(item, params, fslist)
+
+check_info['zfsget'] = {
+    "check_function"          : check_zfsget,
+    "inventory_function"      : inventory_zfsget,
+    "service_description"     : "Filesystem %s",
+    "has_perfdata"            : True,
+    "group"                   : "filesystem",
+    "default_levels_variable" : "filesystem_default_levels",
+    "includes"                : [ "df.include" ],
+}
+
