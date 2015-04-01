@@ -1,0 +1,22 @@
+#!/bin/bash
+
+# Check_mk plugin to check REDIS or sidekiq queue length
+#
+# This script needs to run on a REDIS master or slave.
+#
+# To find the list of available queues run this command
+#     redis-cli smembers resque:queues
+#
+# Craig Cook 1 April 2015
+# - version 1
+#
+
+QUEUE_PREFX="resque:queue:"
+
+if  [ `which redis-cli` ] && [ `which redis-server` ]; then
+    echo '<<<redis_queues>>>'
+    for queue_name in $(redis-cli smembers resque:queues)
+    do
+      echo ${queue_name} $(redis-cli llen ${QUEUE_PREFX}${queue_name})
+    done
+fi
