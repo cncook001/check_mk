@@ -1,23 +1,25 @@
 group = "checkparams"
 subgroup_applications = _("Applications, Processes &amp; Services")
-
 register_check_parameters(
     subgroup_applications,
     "redis_queue",
     _("REDIS or Sidekiq Queue lengths"),
     Dictionary(
         elements = [
-            ("size",
-            Tuple(
-               title = _("Levels for the queue length"),
-               elements = [
+            ("warn_size",
                   Integer(
-                      title = _("Warning if above"), default_value = 10),
+                      title = _("Warning level at"),
+                      default_value = None,
+                  ),
+            ),
+            ("crit_size",
                   Integer(
-                      title = _("Critical if above"), default_value = 30),
-               ]
-            )),
-        ]
+                      title = _("Critical Level at"),
+                      default_value = None,
+                  ),
+            ),
+        ],
+        optional_keys = [ "warn_size", "crit_size" ],
     ),
     TextAscii( title=_("REDIS Queue Name"),
     help=_("The name of the REDIS queue")),
