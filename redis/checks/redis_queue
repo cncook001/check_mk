@@ -26,55 +26,62 @@
 
 # Check written by Craig Cook  1 April 2015
 # - version 1
+# - version 1.1  Added factory_settings, changed params
 
 # Example output from agent:
-#<<<redis_queues>>>
+#<<<redis_queue>>>
 #some-queue-name1 0
 #some-queue-name2 0
 #some-queue-name3 0
 
-def inventory_redis_queues(info):
-   inventory = []
-   for line in info:
+factory_settings["redis_queue_default_levels"] = {
+    "warn_size" : ( None ),
+    "crit_size" : ( None ),
+}
+
+def inventory_redis_queue(info):
+    inventory = []
+    for line in info:
        # line[0] is the name of the queue
        inventory.append( (line[0], {}) )
-   return inventory
+    return inventory
 
-def check_redis_queues(item, params, info):
-    msg = ""
-    state = 0
-    queueName = ""
-    queueLength = 0
+def check_redis_queue(item, params, info):
 
     for line in info:
 
-         queueName = line[0]
-         queueLength = int(line[1])
+        queueName = line[0]
 
-         if queueName == item:
+        if queueName == item:
 
-            warn, crit = params.get("size",     (None, None))
+            queueLength = int(line[1])
+            # Allow for a warn threshold but not require a critical threshold
+            warn = params['warn_size']
+            crit = params['crit_size']
 
             if crit is not None and queueLength >= crit:
-                   state = 2
+                state = 2
             elif warn is not None and queueLength >= warn:
-                   state = 1
+                state = 1
+            else:
+                state = 0
 
             if state > 0:
-               perfdata = [ ('redis_queue', queueLength, warn, crit) ]
+                perfdata = [ ('redis_queue', queueLength, warn, crit) ]
             else:
-               perfdata = [ ('redis_queue', queueLength) ]
+                perfdata = [ ('redis_queue', queueLength) ]
 
-            msg =  "Queue Length is %d " % queueLength
-            msg += "(Levels Warn/Crit at %s/%s)%s, " % (warn, crit, label)
+            infotext =  "Queue Length is %d " % queueLength
+            infotext += "(Levels Warn/Crit at %s/%s), " % (warn, crit)
 
-            return (state, msg, perfdata)
+            return (state, infotext, perfdata)
     return 2, "Queue not found"
 
-check_info['redis_queues'] = {
-    'check_function'          : check_redis_queues,
-    'inventory_function'      : inventory_redis_queues,
+check_info['redis_queue'] = {
+    'check_function'          : check_redis_queue,
+    'inventory_function'      : inventory_redis_queue,
+    "default_levels_variable" : "redis_queue_default_levels",
     'service_description'     : 'REDIS Queue %s',
     'has_perfdata'            : True,
-    'group'                   : 'redis_queues',
+    'group'                   : 'redis_queue',
 }

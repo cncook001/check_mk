@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # Check_mk plugin to check REDIS or sidekiq queue length
 #
@@ -14,7 +14,7 @@
 QUEUE_PREFX="resque:queue:"
 
 if  [ `which redis-cli` ] && [ `which redis-server` ]; then
-    echo '<<<redis_queues>>>'
+    echo '<<<redis_queue>>>'
     for queue_name in $(redis-cli smembers resque:queues)
     do
       echo ${queue_name} $(redis-cli llen ${QUEUE_PREFX}${queue_name})
