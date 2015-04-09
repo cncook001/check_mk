@@ -1,0 +1,17 @@
+title: MySQL Command Counters
+agents: linux
+catalog: app/mysql
+license: GPL
+distribution: check_mk
+description:
+ This check shows database activity.
+
+ This check needs the agent plugin mk_mysql to be installed. Further details about this plugin and monitoring of MySQL can be found in the Check_MK online documentation in the article "Monitoring MySQL with Check_MK".
+
+ WARN/CRIT has not been implemented.
+
+inventory:
+ The check generates one item per Database found.
+
+perfdata:
+ The current value of each counter.
