@@ -17,9 +17,13 @@ On Monitoring Server:
  
         Copy the Checks
         ---------------
-	cp checks/mysql /usr/share/check_mk/checks/mysql
-	cp checks/mysql_capacity /usr/share/check_mk/checks/mysql_capacity
+        cp checks/mysql /usr/share/check_mk/checks/mysql
+        cp checks/mysql_capacity /usr/share/check_mk/checks/mysql_capacity
 
         Copy the pnp-templates
         ----------------------
-	cp pnp-templates/* /usr/share/check_mk/pnp-templates
+        cp pnp-templates/* /usr/share/check_mk/pnp-templates
+
+        Copy the man page
+        -----------------
+        cp checkman/* /usr/share/check_mk/checkman
