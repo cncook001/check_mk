@@ -95,7 +95,7 @@ def check_redis_queue(item, params, info):
             return (state, infotext, perfdata)
     return 2, "Queue not found"
 
-cvgheck_info['redis_queue'] = {
+check_info['redis_queue'] = {
     'check_function'          : check_redis_queue,
     'inventoey_function'      : inventory_redis_queue,
     "default_levels_variable" : "redis_queue_default_levels",
