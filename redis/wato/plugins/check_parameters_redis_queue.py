@@ -18,8 +18,20 @@ register_check_parameters(
                       default_value = None,
                   ),
             ),
+            ("queue_average",
+                  Integer(
+                      title = _("Queue Averaging"),
+                      help = _("By activating averaging, Check_MK will compute the average of "
+                               "the queue size over a given interval. If you have defined "
+                               "alerting levels then these will automatically be applied on the "
+                               "averaged value. This helps to mask out short peaks. "),
+                      unit = _("minutes"),
+                      minvalue = 1,
+                      default_value = 15,
+                  ),
+            ),
         ],
-        optional_keys = [ "warn_size", "crit_size" ],
+        optional_keys = [ "warn_size", "crit_size", "queue_average" ],
     ),
     TextAscii( title=_("REDIS Queue Name"),
     help=_("The name of the REDIS queue")),

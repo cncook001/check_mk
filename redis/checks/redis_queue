@@ -1,4 +1,4 @@
-#!/usr/bin/python
+i#!/usr/bin/python
 # -*- encoding: utf-8; py-indent-offset: 4 -*-
 # +------------------------------------------------------------------+
 # |             ____ _               _        __  __ _  __           |
@@ -27,6 +27,8 @@
 # Check written by Craig Cook  1 April 2015
 # - version 1
 # - version 1.1  Added factory_settings, changed params
+# - version 1.2  14 April 2015  Craig Cook
+#                   Added support for Average Queue Size over time
 
 # Example output from agent:
 #<<<redis_queue>>>
@@ -35,8 +37,9 @@
 #some-queue-name3 0
 
 factory_settings["redis_queue_default_levels"] = {
-    "warn_size" : ( None ),
-    "crit_size" : ( None ),
+    "warn_size"     : ( None ),
+    "crit_size"     : ( None ),
+    "queue_average" : ( None ),
 }
 
 def inventory_redis_queue(info):
@@ -48,6 +51,8 @@ def inventory_redis_queue(info):
 
 def check_redis_queue(item, params, info):
 
+    now = time.time()
+
     for line in info:
 
         queueName = line[0]
@@ -56,8 +61,19 @@ def check_redis_queue(item, params, info):
 
             queueLength = int(line[1])
             # Allow for a warn threshold but not require a critical threshold
-            warn = params['warn_size']
-            crit = params['crit_size']
+            warn              = params['warn_size']
+            crit              = params['crit_size']
+            queue_average     = params['queue_average']
+            extended_perfdata = False
+            infotext          = "Queue Length is"
+
+            if queue_average is not None:
+                timedif, avg_queue = get_average("redis_queue.%s.avg" % item, now, queueLength, params["queue_average"], False)
+                infotext += " %d min average: %.1f%% " % (params["queue_average"], avg_queue)
+                queueLength = avg_queue # use this for level comparison
+                extended_perfdata = True
+            else:
+               infotext += " %d " % queueLength
 
             if crit is not None and queueLength >= crit:
                 state = 2
@@ -71,15 +87,17 @@ def check_redis_queue(item, params, info):
             else:
                 perfdata = [ ('redis_queue', queueLength) ]
 
-            infotext =  "Queue Length is %d " % queueLength
-            infotext += "(Levels Warn/Crit at %s/%s), " % (warn, crit)
+            if  extended_perfdata:
+                 perfdata.append(("redis_queue_avg", avg_queue, warn, crit, params["queue_average"]))
+
+            infotext += "(Levels Warn: %s, Crit: %s, Queue Avg: %s minutes), " % (warn, crit, queue_average)
 
             return (state, infotext, perfdata)
     return 2, "Queue not found"
 
-check_info['redis_queue'] = {
+cvgheck_info['redis_queue'] = {
     'check_function'          : check_redis_queue,
-    'inventory_function'      : inventory_redis_queue,
+    'inventoey_function'      : inventory_redis_queue,
     "default_levels_variable" : "redis_queue_default_levels",
     'service_description'     : 'REDIS Queue %s',
     'has_perfdata'            : True,

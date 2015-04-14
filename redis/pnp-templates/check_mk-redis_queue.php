@@ -23,31 +23,39 @@
 # to the Free Software Foundation, Inc., 51 Franklin St,  Fifth Floor,
 # Boston, MA 02110-1301 USA.
 
+# Check written by Craig Cook  1 April 2015
+# - version 1
+# - version 1.2  14 April 2015  Craig Cook
+#                   Added support for Average Queue Size over time
+
 
 # HTML COLORS
-$RED = "FF0000";
-$YELLOW = "FFFF00";
-$CYAN = "00FFFF";
-$BLUE = "0000FF";
-$DARK_BLUE = "0000A0";
+$RED        = "FF0000";
+$YELLOW     = "FFFF00";
+$CYAN       = "00FFFF";
+$BLUE       = "0000FF";
+$DARK_BLUE  = "0000A0";
 $LIGHT_BLUE = "ADD8E6";
-$PURPLE = "800080";
-$PINK = "FFC0CB";
-$MAGENTA = "FF00FF";
-$SILVER = "C0C0C0";
-$GREY = "808080";
-$ORANGE = "FFA500";
-$BROWN = "A52A2A";
-$MAROON = "800000";
-$GREEN = "00cf00";
-$OLIVE = "808000";
+$PURPLE     = "800080";
+$PINK       = "FFC0CB";
+$MAGENTA    = "FF00FF";
+$SILVER     = "C0C0C0";
+$GREY       = "808080";
+$ORANGE     = "FFA500";
+$BROWN      = "A52A2A";
+$MAROON     = "800000";
+$GREEN      = "00cf00";
+$OLIVE      = "808000";
 
 $WARN_COLOR = "$YELLOW";
 $CRIT_COLOR = "$RED";
 
-$var1 = "redis_queue";
+$var1             = "redis_queue";
 $var1_description = "Jobs";
-$var1_color = "$CYAN";
+$var1_color       = "$CYAN";
+$var2             = "redis_queue_avg";
+$var2_description = "REDIS Queue Average";
+$var2_color       = "$DARK_BLUE";
 
 # The number of data source various due to different
 # settings (such as averaging). We rather work with names
@@ -55,10 +63,10 @@ $var1_color = "$CYAN";
 $RRD = array();
 foreach ($NAME as $i => $n) {
     $RRD[$n]  = "$RRDFILE[$i]:$DS[$i]:MAX";
-    $WARN[$n] = $WARN[$i];
-    $CRIT[$n] = $CRIT[$i];
-    $MIN[$n]  = $MIN[$i];
-    $MAX[$n]  = $MAX[$i];
+    $WARN[$n] =  $WARN[$i];
+    $CRIT[$n] =  $CRIT[$i];
+    $MIN[$n]  =  $MIN[$i];
+    $MAX[$n]  =  $MAX[$i];
 }
 
 $servicedesc = str_replace("_", " ", $servicedesc);
@@ -74,10 +82,25 @@ $def[1] =  ""
 
          . "";
 
+# This puts the Yellow line on the graph if WARN is set
 if ($WARN[1]) {
     $def[1] .= ""
          . "HRULE:$WARN[1]#$WARN_COLOR "
+         . "";
+}
+
+# This puts the Red line on the graph if WARN is set
+if ($CRIT[1]) {
+    $def[1] .= ""
          . "HRULE:$CRIT[1]#$CRIT_COLOR "
+         . "";
+}
+
+# This puts a Dark Blue line on the graph if Queue Average is used
+if (isset($RRD["redis_queue_avg"])) {
+    $def[1] .= ""
+         . "DEF:$var2=$RRD[$var2] "
+         . "LINE:$var2#$var2_color:\"$var2_description\" "
          . "";
 }
 
