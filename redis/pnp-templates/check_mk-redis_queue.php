@@ -75,7 +75,7 @@ $opt[1] = "--vertical-label 'Jobs' -l0  --title \"$servicedesc\" ";
 
 $def[1] =  ""
          . "DEF:$var1=$RRD[$var1] "
-         . "AREA:$var1#$var1_color:\"$var1_description\" "
+         . "AREA:$var1#$var1_color:\"$var1_description               \" "
          . "GPRINT:$var1:LAST:\"%6.2lf last\" "
          . "GPRINT:$var1:AVERAGE:\"%6.2lf avg\" "
          . "GPRINT:$var1:MAX:\"%6.2lf max\\n\" "
