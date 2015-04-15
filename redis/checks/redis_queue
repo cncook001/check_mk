@@ -29,6 +29,9 @@
 # - version 1.1  Added factory_settings, changed params
 # - version 1.2  14 April 2015  Craig Cook
 #                   Added support for Average Queue Size over time
+# - version 1.3  15 April 2015  Craig Cook
+#                   Always report actual queue size for performance data
+#                   Changed variable names to be more descriptive
 
 # Example output from agent:
 #<<<redis_queue>>>
@@ -55,42 +58,48 @@ def check_redis_queue(item, params, info):
 
     for line in info:
 
-        queueName = line[0]
+        queue_name = line[0]
 
-        if queueName == item:
+        if queue_name == item:
 
-            queueLength = int(line[1])
+            queue_size                 = int(line[1])
             # Allow for a warn threshold but not require a critical threshold
-            warn              = params['warn_size']
-            crit              = params['crit_size']
-            queue_average     = params['queue_average']
-            extended_perfdata = False
-            infotext          = "Queue Length is"
+            warn                       = params['warn_size']
+            crit                       = params['crit_size']
+            queue_avg_minute_threshold = params['queue_average']
+            extended_perfdata          = False
+            calculated_avg_queue_size  = None
+            infotext                   = "Queue Length is %d, " % queue_size
 
-            if queue_average is not None:
-                timedif, avg_queue = get_average("redis_queue.%s.avg" % item, now, queueLength, params["queue_average"], False)
-                infotext += " %d min average: %.1f%% " % (params["queue_average"], avg_queue)
-                queueLength = avg_queue # use this for level comparison
+            # If this is true, we have a retrieved an average threshold for the queue over time
+            if queue_avg_minute_threshold is not None:
+                timedif, calculated_avg_queue_size = get_average("redis_queue.%s.avg" % item, now, queue_size, queue_avg_minute_threshold, False)
+                infotext += "%d min average: %.1f%% " % (queue_avg_minute_threshold, calculated_avg_queue_size)
+                queue_size = calculated_avg_queue_size # use this for level comparison
                 extended_perfdata = True
-            else:
-               infotext += " %d " % queueLength
 
-            if crit is not None and queueLength >= crit:
+            # If we have a calculated_avg_queue_size use it to calcuate warning or critical threshold
+            if crit is not None and queue_size >= crit:
                 state = 2
-            elif warn is not None and queueLength >= warn:
+            elif warn is not None and queue_size >= warn:
                 state = 1
             else:
                 state = 0
 
+            # If this is true, calculated_avg_queue_size must have been used to calculate threshold
+            # use actual queue length to report trending data
+            if calculated_avg_queue_size is not None:
+                queue_size = int(line[1])
+
             if state > 0:
-                perfdata = [ ('redis_queue', queueLength, warn, crit) ]
+                perfdata = [ ('redis_queue', queue_size, warn, crit) ]
             else:
-                perfdata = [ ('redis_queue', queueLength) ]
+                perfdata = [ ('redis_queue', queue_size) ]
 
             if  extended_perfdata:
-                 perfdata.append(("redis_queue_avg", avg_queue, warn, crit, params["queue_average"]))
+                 perfdata.append(("redis_queue_avg", calculated_avg_queue_size, warn, crit))
 
-            infotext += "(Levels Warn: %s, Crit: %s, Queue Avg: %s minutes), " % (warn, crit, queue_average)
+            infotext += "(Levels Warn: %s, Crit: %s, Queue Avg: %s minutes), " % (warn, crit, queue_avg_minute_threshold)
 
             return (state, infotext, perfdata)
     return 2, "Queue not found"

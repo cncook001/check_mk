@@ -16,7 +16,7 @@ description:
  You can also set a time period to calcuate the average queue size.
  By activating averaging, Check_MK will compute the average of the queue size over a given interval.
  If you have defined alerting levels then these will automatically be applied on the averaged value.
- This helps to mask out short peaks
+ This helps to mask out short peaks.
 
 item:
  The name of the queue
