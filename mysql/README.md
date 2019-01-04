@@ -7,6 +7,17 @@ Usage:
 On Client:
  
 	cp agent/plugins/mk_mysql /usr/lib/check_mk_agent/plugins
+
+	cp agent/etc/mysql.cg /etc/check_mk
+
+	chmod 700 /usr/lib/check_mk_agent/plugins/mk_mysql
+
+        Edit /etc/check_mk/mysql.cfg with your mysql user details
+
+If you get an error about /usr/lib/check_mk_agent missing try this:
+
+        cp agent/plugins/mk_mysql /usr/share/check-mk-agent/plugins
+
 	cp agent/etc/mysql.cg /etc/check_mk
  
 	chmod 700 /usr/lib/check_mk_agent/plugins/mk_mysql
